@@ -10,28 +10,28 @@ pub enum OwnerType {
 pub struct Message {
     pub owner: OwnerType,
     pub text: String,
-    pub editing: Option<String>,
+    id: usize,
 }
 
 impl Message {
-    pub fn from_user(text: String) -> Self {
+    pub fn from_user(text: String, id: usize) -> Self {
         Message {
             owner: OwnerType::User,
             text,
-            editing: None,
+            id,
         }
     }
 
-    pub fn from_char(char_id: usize, text: String) -> Self {
+    pub fn from_char(char_id: usize, text: String, id: usize) -> Self {
         Message {
             owner: OwnerType::Char(char_id),
             text: text.trim().to_string(),
-            editing: None,
+            id,
         }
     }
 
-    pub fn empty_from_char(char_id: usize) -> Self {
-        Self::from_char(char_id, String::new())
+    pub fn empty_from_char(char_id: usize, id: usize) -> Self {
+        Self::from_char(char_id, String::new(), id)
     }
 
     pub fn to_chat_message(&self) -> ChatMessage {
@@ -41,11 +41,15 @@ impl Message {
         }
     }
 
-    pub fn create_brother(&self) -> Self {
+    pub fn create_brother(&self, id: usize) -> Self {
         Message {
             owner: self.owner.clone(),
             text: String::new(),
-            editing: None,
+            id,
         }
+    }
+
+    pub fn id(&self) -> usize {
+        self.id
     }
 }

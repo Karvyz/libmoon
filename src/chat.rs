@@ -10,7 +10,7 @@ use log::{error, trace};
 use tokio::runtime::Runtime;
 
 use crate::{
-    message::Message,
+    message::{Message, OwnerType},
     persona::{Persona, loader},
     settings::Settings,
 };
@@ -22,6 +22,8 @@ pub struct Chat {
     char: Persona,
     settings: Settings,
     runtime: Runtime,
+
+    messages_ids: usize,
 }
 
 impl Chat {
@@ -34,9 +36,12 @@ impl Chat {
 
     pub fn with_personas(user: Persona, char: Persona, settings: Settings) -> Self {
         let mut root = Node::new();
+        let mut messages_ids = 0;
         for greeting in char.greetings(Some(user.name())) {
-            root.messages.push(Message::from_char(0, greeting));
+            root.messages
+                .push(Message::from_char(0, greeting, messages_ids));
             root.childs.push(Node::new());
+            messages_ids += 1;
         }
         Chat {
             root: Arc::new(Mutex::new(root)),
@@ -44,19 +49,29 @@ impl Chat {
             char,
             settings,
             runtime: Runtime::new().unwrap(),
+            messages_ids,
         }
     }
 
     pub fn add_user_message(&mut self, text: String) {
-        self.root.lock().unwrap().push(Message::from_user(text));
+        self.root
+            .lock()
+            .unwrap()
+            .push(Message::from_user(text, self.messages_ids));
+        self.messages_ids += 1;
 
         // Response from the llm
-        self.root.lock().unwrap().push(Message::empty_from_char(0));
+        self.root
+            .lock()
+            .unwrap()
+            .push(Message::empty_from_char(0, self.messages_ids));
+        self.messages_ids += 1;
         self.generate();
     }
 
     pub fn next(&mut self, depth: usize) {
-        if self.root.lock().unwrap().next(depth) {
+        if self.root.lock().unwrap().next(depth, self.messages_ids) {
+            self.messages_ids += 1;
             self.generate();
         }
     }
@@ -65,10 +80,27 @@ impl Chat {
         self.root.lock().unwrap().previous(depth);
     }
 
+    pub fn add_edit(&mut self, depth: usize, text: String) {
+        let added_response = self
+            .root
+            .lock()
+            .unwrap()
+            .add_edit(depth, self.messages_ids, text);
+        self.messages_ids += 1;
+        if added_response {
+            self.messages_ids += 1;
+            self.generate();
+        }
+    }
+
     fn generate(&self) {
         // Initialize and configure the LLM client with streaming enabled
         let llm = self.llm();
-        let history = self.get_history();
+        let history: Vec<ChatMessage> = self
+            .get_history()
+            .into_iter()
+            .map(|m| m.to_chat_message())
+            .collect();
         let root = self.root.clone();
         self.runtime.spawn(async move {
             match llm.chat_stream(&history).await {
@@ -83,7 +115,7 @@ impl Chat {
         });
     }
 
-    pub fn get_history(&self) -> Vec<ChatMessage> {
+    pub fn get_history(&self) -> Vec<Message> {
         let mut history = vec![];
         self.root.lock().unwrap().get_history(&mut history);
         history
@@ -140,9 +172,9 @@ impl Node {
         }
     }
 
-    pub fn get_history(&self, history: &mut Vec<ChatMessage>) {
+    pub fn get_history(&self, history: &mut Vec<Message>) {
         if !self.messages.is_empty() {
-            history.push(self.messages[self.selected].to_chat_message());
+            history.push(self.messages[self.selected].clone());
             self.childs[self.selected].get_history(history);
         }
     }
@@ -158,12 +190,12 @@ impl Node {
         }
     }
 
-    fn next(&mut self, depth: usize) -> bool {
+    fn next(&mut self, depth: usize, ids: usize) -> bool {
         match depth == 0 {
             true => match self.selected + 1 >= self.messages.len() {
                 true => {
                     self.messages
-                        .push(self.messages[self.selected].create_brother());
+                        .push(self.messages[self.selected].create_brother(ids));
                     self.childs.push(Node::new());
                     self.selected += 1;
                     true
@@ -173,7 +205,28 @@ impl Node {
                     false
                 }
             },
-            false => self.childs[self.selected].next(depth - 1),
+            false => self.childs[self.selected].next(depth - 1, ids),
+        }
+    }
+
+    pub fn add_edit(&mut self, depth: usize, ids: usize, text: String) -> bool {
+        match depth == 0 {
+            true => {
+                let mut added_response = false;
+                let mut edit = self.messages[self.selected].create_brother(ids);
+                edit.text = text;
+                self.messages.push(edit);
+                let mut new_node = Node::new();
+                if let OwnerType::User = self.messages[self.selected].owner {
+                    new_node.messages.push(Message::empty_from_char(0, ids + 1));
+                    new_node.childs.push(Node::new());
+                    added_response = true;
+                }
+                self.childs.push(new_node);
+                self.selected = self.messages.len() - 1;
+                added_response
+            }
+            false => self.childs[self.selected].add_edit(depth - 1, ids, text),
         }
     }
 }
