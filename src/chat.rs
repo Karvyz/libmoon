@@ -1,6 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use futures::StreamExt;
+use image::{ImageBuffer, Rgba};
 use llm::{
     LLMProvider,
     builder::{LLMBackend, LLMBuilder},
@@ -18,8 +22,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Chat {
     root: Arc<Mutex<Node>>,
-    user: Persona,
-    char: Persona,
+    personas: Vec<Persona>,
     settings: Settings,
     runtime: Runtime,
 
@@ -45,8 +48,7 @@ impl Chat {
         }
         Chat {
             root: Arc::new(Mutex::new(root)),
-            user,
-            char,
+            personas: vec![user, char],
             settings,
             runtime: Runtime::new().unwrap(),
             messages_ids,
@@ -54,11 +56,15 @@ impl Chat {
     }
 
     pub fn user(&self) -> Persona {
-        self.user.clone()
+        self.personas[0].clone()
     }
 
     pub fn title(&self) -> String {
-        format!("{}'s chat with {}", self.user.name(), self.char.name())
+        format!(
+            "{}'s chat with {}",
+            self.personas[0].name(),
+            self.personas[1].name()
+        )
     }
 
     pub fn settings(&self) -> &Settings {
@@ -71,10 +77,19 @@ impl Chat {
     }
 
     pub fn owner_name(&self, message: &Message) -> &str {
-        match message.owner {
-            OwnerType::User => self.user.name(),
-            OwnerType::Char(_) => self.char.name(),
+        self.personas[usize::from(message.owner)].name()
+    }
+
+    pub fn message_image(&self, message: &Message) -> Option<Rc<ImageBuffer<Rgba<u8>, Vec<u8>>>> {
+        self.personas[usize::from(message.owner)].image()
+    }
+
+    pub fn raw_images(&self) -> Vec<Option<(u32, u32, Vec<u8>)>> {
+        let mut raw_images = vec![];
+        for p in &self.personas {
+            raw_images.push(p.raw_image())
         }
+        raw_images
     }
 
     pub fn add_user_message(&mut self, text: String) {
@@ -173,7 +188,7 @@ impl Chat {
             .temperature(self.settings.temperature)
             .max_tokens(self.settings.max_tokens)
             .reasoning(self.settings.reasoning)
-            .system(self.char.system_prompt(Some(self.user.name())))
+            .system(self.personas[1].system_prompt(Some(self.personas[0].name())))
             .build()
             .expect("Failed to build LLM (Openrouter)")
     }

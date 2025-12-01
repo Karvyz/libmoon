@@ -1,9 +1,18 @@
 use llm::chat::ChatMessage;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum OwnerType {
     User,
     Char(usize),
+}
+
+impl From<OwnerType> for usize {
+    fn from(value: OwnerType) -> Self {
+        match value {
+            OwnerType::User => 0,
+            OwnerType::Char(i) => i + 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

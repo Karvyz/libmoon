@@ -93,6 +93,17 @@ impl Persona {
         self.image.clone()
     }
 
+    pub fn raw_image(&self) -> Option<(u32, u32, Vec<u8>)> {
+        match self.image.clone() {
+            Some(image) => {
+                let (width, height) = image.dimensions();
+                let content = (*image).clone().into_raw().to_vec();
+                Some((width, height, content))
+            }
+            None => None,
+        }
+    }
+
     pub fn modified_time(&self) -> SystemTime {
         self.modified_time
     }
