@@ -14,7 +14,10 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn from_user(text: String, id: usize) -> Self {
+    pub fn from_user(mut text: String, id: usize) -> Self {
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
         Message {
             owner: OwnerType::User,
             text,
@@ -22,7 +25,10 @@ impl Message {
         }
     }
 
-    pub fn from_char(char_id: usize, text: String, id: usize) -> Self {
+    pub fn from_char(char_id: usize, mut text: String, id: usize) -> Self {
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
         Message {
             owner: OwnerType::Char(char_id),
             text: text.trim().to_string(),

@@ -53,7 +53,32 @@ impl Chat {
         }
     }
 
+    pub fn user(&self) -> Persona {
+        self.user.clone()
+    }
+
+    pub fn title(&self) -> String {
+        format!("{}'s chat with {}", self.user.name(), self.char.name())
+    }
+
+    pub fn settings(&self) -> &Settings {
+        &self.settings
+    }
+
+    pub fn set_settings(&mut self, settings: Settings) {
+        trace!("Settings changed");
+        self.settings = settings;
+    }
+
+    pub fn owner_name(&self, message: &Message) -> &str {
+        match message.owner {
+            OwnerType::User => self.user.name(),
+            OwnerType::Char(_) => self.char.name(),
+        }
+    }
+
     pub fn add_user_message(&mut self, text: String) {
+        trace!("Adding user Message");
         self.root
             .lock()
             .unwrap()
@@ -61,6 +86,7 @@ impl Chat {
         self.messages_ids += 1;
 
         // Response from the llm
+        trace!("Adding char response");
         self.root
             .lock()
             .unwrap()
@@ -70,17 +96,21 @@ impl Chat {
     }
 
     pub fn next(&mut self, depth: usize) {
+        trace!("Next depth {depth}");
         if self.root.lock().unwrap().next(depth, self.messages_ids) {
+            trace!("Adding char response");
             self.messages_ids += 1;
             self.generate();
         }
     }
 
     pub fn previous(&mut self, depth: usize) {
+        trace!("Next depth {depth}");
         self.root.lock().unwrap().previous(depth);
     }
 
     pub fn add_edit(&mut self, depth: usize, text: String) {
+        trace!("Adding new edit depth {depth}");
         let added_response = self
             .root
             .lock()
@@ -91,6 +121,11 @@ impl Chat {
             self.messages_ids += 1;
             self.generate();
         }
+    }
+
+    pub fn delete(&mut self, depth: usize) {
+        trace!("Deleting depth {depth}");
+        self.root.lock().unwrap().delete(depth);
     }
 
     fn generate(&self) {
@@ -119,6 +154,15 @@ impl Chat {
         let mut history = vec![];
         self.root.lock().unwrap().get_history(&mut history);
         history
+    }
+
+    pub fn get_history_structure(&self) -> Vec<(usize, usize)> {
+        let mut structure = vec![];
+        self.root
+            .lock()
+            .unwrap()
+            .get_history_structure(&mut structure);
+        structure
     }
 
     fn llm(&self) -> Box<dyn LLMProvider> {
@@ -179,6 +223,13 @@ impl Node {
         }
     }
 
+    pub fn get_history_structure(&self, structure: &mut Vec<(usize, usize)>) {
+        if !self.messages.is_empty() {
+            structure.push((self.selected + 1, self.messages.len()));
+            self.childs[self.selected].get_history_structure(structure);
+        }
+    }
+
     fn previous(&mut self, depth: usize) {
         match depth == 0 {
             true => {
@@ -227,6 +278,19 @@ impl Node {
                 added_response
             }
             false => self.childs[self.selected].add_edit(depth - 1, ids, text),
+        }
+    }
+
+    fn delete(&mut self, depth: usize) {
+        match depth == 0 {
+            true => {
+                self.messages.remove(self.selected);
+                self.childs.remove(self.selected);
+                if self.selected > 0 {
+                    self.selected -= 1
+                }
+            }
+            false => self.childs[self.selected].delete(depth - 1),
         }
     }
 }
