@@ -93,12 +93,15 @@ impl Chat {
     }
 
     pub fn add_user_message(&mut self, text: String) {
-        trace!("Adding user Message");
-        self.root
-            .lock()
-            .unwrap()
-            .push(Message::from_user(text, self.messages_ids));
-        self.messages_ids += 1;
+        let text = text.trim().to_string();
+        if !text.is_empty() {
+            trace!("Adding user Message");
+            self.root
+                .lock()
+                .unwrap()
+                .push(Message::from_user(text, self.messages_ids));
+            self.messages_ids += 1;
+        }
 
         // Response from the llm
         trace!("Adding char response");
@@ -125,6 +128,7 @@ impl Chat {
     }
 
     pub fn add_edit(&mut self, depth: usize, text: String) {
+        let text = text.trim().to_string();
         trace!("Adding new edit depth {depth}");
         let added_response = self
             .root
