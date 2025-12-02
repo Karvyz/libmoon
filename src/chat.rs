@@ -150,11 +150,12 @@ impl Chat {
     fn generate(&self) {
         // Initialize and configure the LLM client with streaming enabled
         let llm = self.llm();
-        let history: Vec<ChatMessage> = self
+        let mut history: Vec<ChatMessage> = self
             .get_history()
             .into_iter()
             .map(|m| m.to_chat_message())
             .collect();
+        history.pop();
         let root = self.root.clone();
         self.runtime.spawn(async move {
             match llm.chat_stream(&history).await {
