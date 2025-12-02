@@ -29,7 +29,7 @@ impl Settings {
     pub fn load() -> Self {
         let path = config_dir()
             .map(|mut path| {
-                path.push("fullmoon");
+                path.push("moon");
                 path.push("settings.json");
                 path
             })
