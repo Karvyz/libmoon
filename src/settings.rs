@@ -65,7 +65,7 @@ impl Settings {
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let config_dir = config_dir().ok_or("Unable to find config directory")?;
 
-        let fullmoon_dir = config_dir.join("fullmoon");
+        let fullmoon_dir = config_dir.join("moon");
         if !fullmoon_dir.exists() {
             fs::create_dir_all(&fullmoon_dir)?;
         }
