@@ -74,6 +74,7 @@ impl Chat {
     pub fn set_settings(&mut self, settings: Settings) {
         trace!("Settings changed");
         self.settings = settings;
+        let _ = self.settings.save();
     }
 
     pub fn owner_name(&self, message: &Message) -> &str {
