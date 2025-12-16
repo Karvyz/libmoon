@@ -1,4 +1,8 @@
-use std::vec;
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    time::SystemTime,
+    vec,
+};
 
 use llm::chat::ChatMessage;
 use regex::Regex;
@@ -22,34 +26,34 @@ impl From<OwnerType> for usize {
 pub struct Message {
     pub owner: OwnerType,
     pub text: String,
-    id: usize,
+    timestamp: SystemTime,
 }
 
 impl Message {
-    pub fn from_user(mut text: String, id: usize) -> Self {
+    pub fn from_user(mut text: String) -> Self {
         if !text.ends_with('\n') {
             text.push('\n');
         }
         Message {
             owner: OwnerType::User,
             text,
-            id,
+            timestamp: SystemTime::now(),
         }
     }
 
-    pub fn from_char(char_id: usize, mut text: String, id: usize) -> Self {
+    pub fn from_char(char_id: usize, mut text: String) -> Self {
         if !text.ends_with('\n') {
             text.push('\n');
         }
         Message {
             owner: OwnerType::Char(char_id),
             text,
-            id,
+            timestamp: SystemTime::now(),
         }
     }
 
-    pub fn empty_from_char(char_id: usize, id: usize) -> Self {
-        Self::from_char(char_id, String::new(), id)
+    pub fn empty_from_char(char_id: usize) -> Self {
+        Self::from_char(char_id, String::new())
     }
 
     pub fn to_chat_message(&self) -> ChatMessage {
@@ -59,16 +63,22 @@ impl Message {
         }
     }
 
-    pub fn create_brother(&self, id: usize) -> Self {
+    pub fn create_brother(&self) -> Self {
         Message {
             owner: self.owner,
             text: String::new(),
-            id,
+            timestamp: SystemTime::now(),
         }
     }
 
     pub fn id(&self) -> usize {
-        self.id
+        let mut hasher = DefaultHasher::new();
+        self.timestamp.hash(&mut hasher);
+        hasher.finish() as usize
+    }
+
+    pub fn timestamp(&self) -> SystemTime {
+        self.timestamp
     }
 
     pub fn clean(&self) -> String {

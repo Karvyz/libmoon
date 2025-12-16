@@ -32,8 +32,6 @@ pub struct Chat {
     personas: Vec<Persona>,
     settings: Settings,
     tx: Option<mpsc::Sender<ChatUpdate>>,
-
-    messages_ids: usize,
 }
 
 impl Chat {
@@ -46,12 +44,9 @@ impl Chat {
 
     pub fn with_personas(user: Persona, char: Persona, settings: Settings) -> Self {
         let mut root = Node::new();
-        let mut messages_ids = 0;
         for greeting in char.greetings(Some(user.name())) {
-            root.messages
-                .push(Message::from_char(0, greeting, messages_ids));
+            root.messages.push(Message::from_char(0, greeting));
             root.childs.push(Node::new());
-            messages_ids += 1;
         }
 
         Chat {
@@ -59,7 +54,6 @@ impl Chat {
             personas: vec![user, char],
             settings,
             tx: None,
-            messages_ids,
         }
     }
 
@@ -115,28 +109,19 @@ impl Chat {
         let text = text.trim().to_string();
         if !text.is_empty() {
             trace!("Adding user Message");
-            self.root
-                .lock()
-                .unwrap()
-                .push(Message::from_user(text, self.messages_ids));
-            self.messages_ids += 1;
+            self.root.lock().unwrap().push(Message::from_user(text));
         }
 
         // Response from the llm
         trace!("Adding char response");
-        self.root
-            .lock()
-            .unwrap()
-            .push(Message::empty_from_char(0, self.messages_ids));
-        self.messages_ids += 1;
+        self.root.lock().unwrap().push(Message::empty_from_char(0));
         self.generate();
     }
 
     pub fn next(&mut self, depth: usize) {
         trace!("Next depth {depth}");
-        if self.root.lock().unwrap().next(depth, self.messages_ids) {
+        if self.root.lock().unwrap().next(depth) {
             trace!("Adding char response");
-            self.messages_ids += 1;
             self.generate();
         }
     }
@@ -149,14 +134,8 @@ impl Chat {
     pub fn add_edit(&mut self, depth: usize, text: String) {
         let text = text.trim().to_string();
         trace!("Adding new edit depth {depth}");
-        let added_response = self
-            .root
-            .lock()
-            .unwrap()
-            .add_edit(depth, self.messages_ids, text);
-        self.messages_ids += 1;
+        let added_response = self.root.lock().unwrap().add_edit(depth, text);
         if added_response {
-            self.messages_ids += 1;
             self.generate();
         }
     }
@@ -293,12 +272,12 @@ impl Node {
         }
     }
 
-    fn next(&mut self, depth: usize, ids: usize) -> bool {
+    fn next(&mut self, depth: usize) -> bool {
         match depth == 0 {
             true => match self.selected + 1 >= self.messages.len() {
                 true => {
                     self.messages
-                        .push(self.messages[self.selected].create_brother(ids));
+                        .push(self.messages[self.selected].create_brother());
                     self.childs.push(Node::new());
                     self.selected += 1;
                     true
@@ -308,20 +287,20 @@ impl Node {
                     false
                 }
             },
-            false => self.childs[self.selected].next(depth - 1, ids),
+            false => self.childs[self.selected].next(depth - 1),
         }
     }
 
-    pub fn add_edit(&mut self, depth: usize, ids: usize, text: String) -> bool {
+    pub fn add_edit(&mut self, depth: usize, text: String) -> bool {
         match depth == 0 {
             true => {
                 let mut added_response = false;
-                let mut edit = self.messages[self.selected].create_brother(ids);
+                let mut edit = self.messages[self.selected].create_brother();
                 edit.text = text;
                 self.messages.push(edit);
                 let mut new_node = Node::new();
                 if let OwnerType::User = self.messages[self.selected].owner {
-                    new_node.messages.push(Message::empty_from_char(0, ids + 1));
+                    new_node.messages.push(Message::empty_from_char(0));
                     new_node.childs.push(Node::new());
                     added_response = true;
                 }
@@ -329,7 +308,7 @@ impl Node {
                 self.selected = self.messages.len() - 1;
                 added_response
             }
-            false => self.childs[self.selected].add_edit(depth - 1, ids, text),
+            false => self.childs[self.selected].add_edit(depth - 1, text),
         }
     }
 
