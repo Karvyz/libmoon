@@ -11,7 +11,7 @@ use llm::{
     chat::ChatMessage,
 };
 use log::{error, trace};
-use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
 
 use crate::{
     message::{Message, OwnerType},
@@ -19,12 +19,19 @@ use crate::{
     settings::Settings,
 };
 
+pub enum ChatUpdate {
+    MessageCreated,
+    StreamUpdate,
+    StreamFinished,
+    Error(String),
+}
+
 #[derive(Debug)]
 pub struct Chat {
     root: Arc<Mutex<Node>>,
     personas: Vec<Persona>,
     settings: Settings,
-    runtime: Runtime,
+    tx: Option<mpsc::Sender<ChatUpdate>>,
 
     messages_ids: usize,
 }
@@ -46,13 +53,24 @@ impl Chat {
             root.childs.push(Node::new());
             messages_ids += 1;
         }
+
         Chat {
             root: Arc::new(Mutex::new(root)),
             personas: vec![user, char],
             settings,
-            runtime: Runtime::new().unwrap(),
+            tx: None,
             messages_ids,
         }
+    }
+
+    pub fn set_tx(&mut self, tx: mpsc::Sender<ChatUpdate>) {
+        self.tx = Some(tx);
+    }
+
+    pub fn get_rx(&mut self) -> mpsc::Receiver<ChatUpdate> {
+        let (tx, rx) = mpsc::channel(10);
+        self.tx = Some(tx);
+        rx
     }
 
     pub fn user(&self) -> Persona {
@@ -148,7 +166,7 @@ impl Chat {
         self.root.lock().unwrap().delete(depth);
     }
 
-    fn generate(&self) {
+    fn generate(&mut self) {
         // Initialize and configure the LLM client with streaming enabled
         let llm = self.llm();
         let mut history: Vec<ChatMessage> = self
@@ -158,17 +176,30 @@ impl Chat {
             .collect();
         history.pop();
         let root = self.root.clone();
-        self.runtime.spawn(async move {
+        let tx = self.tx.clone();
+        tokio::spawn(async move {
             match llm.chat_stream(&history).await {
-                Err(e) => error!("{}", e),
+                Err(e) => {
+                    error!("{}", e);
+                    Self::send_update(&tx, ChatUpdate::Error(e.to_string())).await;
+                }
                 Ok(mut stream) => {
+                    Self::send_update(&tx, ChatUpdate::MessageCreated).await;
                     while let Some(Ok(token)) = stream.next().await {
                         root.lock().unwrap().append_to_last_message(&token);
+                        Self::send_update(&tx, ChatUpdate::StreamUpdate).await;
                     }
                     trace!("Streaming completed.");
+                    Self::send_update(&tx, ChatUpdate::StreamFinished).await;
                 }
             }
         });
+    }
+
+    async fn send_update(tx: &Option<mpsc::Sender<ChatUpdate>>, cu: ChatUpdate) {
+        if let Some(tx) = tx {
+            tx.send(cu).await.unwrap();
+        }
     }
 
     pub fn get_history(&self) -> Vec<Message> {
