@@ -197,6 +197,17 @@ impl Chat {
     }
 
     fn llm(&self) -> Box<dyn LLMProvider> {
+        let user_name = self.personas[0].name();
+        let char_name = self.personas[1].name();
+
+        let system_prompt = format!(
+            "Write a story between {} and {}. Do not speak or impersonate {}.\n{}\nStory start:\n",
+            user_name,
+            char_name,
+            user_name,
+            self.personas[1].system_prompt(Some(user_name))
+        );
+
         LLMBuilder::new()
             .backend(LLMBackend::OpenRouter)
             .api_key(self.settings.api_key.clone())
@@ -204,7 +215,7 @@ impl Chat {
             .temperature(self.settings.temperature)
             .max_tokens(self.settings.max_tokens)
             .reasoning(self.settings.reasoning)
-            .system(self.personas[1].system_prompt(Some(self.personas[0].name())))
+            .system(system_prompt)
             .build()
             .expect("Failed to build LLM (Openrouter)")
     }
