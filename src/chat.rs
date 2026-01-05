@@ -20,10 +20,11 @@ use crate::{
 };
 
 pub enum ChatUpdate {
-    MessageCreated,
+    RequestSent,
+    RequestOk,
+    RequestError(String),
     StreamUpdate,
     StreamFinished,
-    Error(String),
 }
 
 #[derive(Debug)]
@@ -31,7 +32,7 @@ pub struct Chat {
     root: Arc<Mutex<Node>>,
     personas: Vec<Persona>,
     settings: Settings,
-    tx: Option<mpsc::Sender<ChatUpdate>>,
+    pub tx: Option<mpsc::Sender<ChatUpdate>>,
 }
 
 impl Chat {
@@ -157,13 +158,14 @@ impl Chat {
         let root = self.root.clone();
         let tx = self.tx.clone();
         tokio::spawn(async move {
+            Self::send_update(&tx, ChatUpdate::RequestSent).await;
             match llm.chat_stream(&history).await {
                 Err(e) => {
                     error!("{}", e);
-                    Self::send_update(&tx, ChatUpdate::Error(e.to_string())).await;
+                    Self::send_update(&tx, ChatUpdate::RequestError(e.to_string())).await;
                 }
                 Ok(mut stream) => {
-                    Self::send_update(&tx, ChatUpdate::MessageCreated).await;
+                    Self::send_update(&tx, ChatUpdate::RequestOk).await;
                     while let Some(Ok(token)) = stream.next().await {
                         root.lock().unwrap().append_to_last_message(&token);
                         Self::send_update(&tx, ChatUpdate::StreamUpdate).await;
