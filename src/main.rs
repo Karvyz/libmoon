@@ -1,5 +1,7 @@
-use libmoon::chat::{Chat, ChatUpdate};
-use tokio::sync::mpsc;
+use libmoon::{
+    chat::ChatUpdate,
+    moon::{Moon, MoonUpdate},
+};
 
 #[tokio::main]
 async fn main() {
@@ -9,45 +11,41 @@ async fn main() {
         .filter_module("llm", log::LevelFilter::Trace)
         .init();
 
-    let mut chat = Chat::load();
-    let mut rx = chat.get_rx();
+    let mut moon = Moon::new();
+    println!("{:?}\n\n", moon.chat.get_history());
+    moon.chat.add_user_message("Count to 3".to_string());
+    handle(&mut moon).await;
+    println!("{:?}\n\n", moon.chat.get_history());
 
-    println!("{:?}\n\n", chat.get_history());
-    chat.add_user_message("Count to 3".to_string());
-    handle(&mut rx).await;
-    println!("{:?}\n\n", chat.get_history());
+    moon.chat.next(0);
+    println!("{:?}\n\n", moon.chat.get_history());
 
-    chat.next(0);
-    println!("{:?}\n\n", chat.get_history());
+    moon.chat.next(0);
+    handle(&mut moon).await;
+    println!("{:?}\n\n", moon.chat.get_history());
 
-    chat.next(0);
-    handle(&mut rx).await;
-    println!("{:?}\n\n", chat.get_history());
+    moon.chat.previous(0);
+    moon.chat.previous(0);
+    moon.chat.previous(0);
+    moon.chat.add_edit(1, "This is an user edit.".to_string());
+    handle(&mut moon).await;
+    println!("{:?}\n\n", moon.chat.get_history());
 
-    chat.previous(0);
-    chat.previous(0);
-    chat.previous(0);
-    chat.add_edit(1, "This is an user edit.".to_string());
-    handle(&mut rx).await;
-    println!("{:?}\n\n", chat.get_history());
-
-    chat.add_edit(0, "This is a char edit.".to_string());
-    println!("{:?}\n\n", chat.get_history());
+    moon.chat.add_edit(0, "This is a char edit.".to_string());
+    println!("{:?}\n\n", moon.chat.get_history());
 }
 
-async fn handle(rx: &mut mpsc::Receiver<ChatUpdate>) {
+async fn handle(moon: &mut Moon) {
     loop {
-        match rx.recv().await {
-            Some(u) => match u {
-                ChatUpdate::MessageCreated => println!("MessageCreated"),
+        match moon.recv().await {
+            MoonUpdate::CU(u) => match u {
+                ChatUpdate::RequestSent => println!("Request Sent"),
+                ChatUpdate::RequestOk => println!("Request Ok"),
+                ChatUpdate::RequestError(e) => println!("Error: {e}"),
                 ChatUpdate::StreamUpdate => println!("StreamUpdate "),
-                ChatUpdate::StreamFinished => {
-                    println!("StreamFinished");
-                    return;
-                }
-                ChatUpdate::Error(e) => println!("Error: {e}"),
+                ChatUpdate::StreamFinished => println!("StreamFinished"),
             },
-            None => return,
+            MoonUpdate::Error(e) => println!("Error: {e}"),
         }
     }
 }

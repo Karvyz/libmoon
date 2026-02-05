@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     message::{Message, OwnerType},
-    persona::{Persona, loader},
+    persona::Persona,
     settings::Settings,
 };
 
@@ -32,17 +32,10 @@ pub struct Chat {
     root: Arc<Mutex<Node>>,
     personas: Vec<Persona>,
     settings: Settings,
-    pub tx: Option<mpsc::Sender<ChatUpdate>>,
+    tx: Option<mpsc::Sender<ChatUpdate>>,
 }
 
 impl Chat {
-    pub fn load() -> Self {
-        let user = loader::load_most_recent_user().unwrap_or(Persona::default_user());
-        let char = loader::load_most_recent_char().unwrap_or(Persona::default_char());
-        let settings = Settings::load();
-        Self::with_personas(user, char, settings)
-    }
-
     pub fn with_personas(user: Persona, char: Persona, settings: Settings) -> Self {
         let mut root = Node::new();
         for greeting in char.greetings(Some(user.name())) {
