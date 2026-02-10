@@ -1,24 +1,17 @@
-use std::{fmt::Debug, ops::Deref, path::PathBuf, rc::Rc, time::SystemTime};
+use std::{fmt::Debug, ops::Deref, path::PathBuf, time::SystemTime};
 
 use image::{ImageBuffer, Rgba};
 use log::error;
 
-use crate::persona::basic::Basic;
+use crate::persona::card::Card;
 
-mod basic;
 mod card;
 pub mod loader;
 
-pub trait CharData {
-    fn name(&self) -> &str;
-    fn system_prompt(&self, partner_name: Option<&str>) -> String;
-    fn greetings(&self, partner_name: Option<&str>) -> Vec<String>;
-}
-
 #[derive(Clone)]
 pub struct Persona {
-    data: Rc<dyn CharData>,
-    image: Option<Rc<ImageBuffer<Rgba<u8>, Vec<u8>>>>,
+    data: Card,
+    image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
     modified_time: SystemTime,
     path: PathBuf,
 }
@@ -32,7 +25,7 @@ impl Debug for Persona {
 }
 
 impl Deref for Persona {
-    type Target = Rc<dyn CharData>;
+    type Target = Card;
 
     fn deref(&self) -> &Self::Target {
         &self.data
@@ -41,8 +34,8 @@ impl Deref for Persona {
 
 impl Persona {
     pub fn new(
-        data: Rc<dyn CharData>,
-        image: Option<Rc<ImageBuffer<Rgba<u8>, Vec<u8>>>>,
+        data: Card,
+        image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
         modified_time: SystemTime,
         path: PathBuf,
     ) -> Self {
@@ -56,7 +49,7 @@ impl Persona {
 
     pub fn default_user() -> Self {
         Self {
-            data: Basic::new("User", ""),
+            data: Card::basic("User", ""),
             image: None,
             modified_time: SystemTime::now(),
             path: PathBuf::new(),
@@ -65,7 +58,7 @@ impl Persona {
 
     pub fn default_char() -> Self {
         Self {
-            data: Basic::new("Luna", "You are Luna, an helpfull AI assistant."),
+            data: Card::basic("Luna", "You are Luna, an helpfull AI assistant."),
             image: None,
 
             modified_time: SystemTime::now(),
@@ -89,7 +82,7 @@ impl Persona {
     //     Ok(())
     // }
 
-    pub fn image(&self) -> Option<Rc<ImageBuffer<Rgba<u8>, Vec<u8>>>> {
+    pub fn image(&self) -> Option<ImageBuffer<Rgba<u8>, Vec<u8>>> {
         self.image.clone()
     }
 
@@ -97,7 +90,7 @@ impl Persona {
         match self.image.clone() {
             Some(image) => {
                 let (width, height) = image.dimensions();
-                let content = (*image).clone().into_raw().to_vec();
+                let content = image.to_vec();
                 Some((width, height, content))
             }
             None => None,

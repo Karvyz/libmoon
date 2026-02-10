@@ -1,9 +1,9 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::persona::{CharData, Persona};
+use crate::persona::Persona;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Card {
@@ -18,17 +18,39 @@ pub struct Card {
 }
 
 impl Card {
-    pub fn load_from_json(data: &str) -> Result<Rc<Self>> {
-        Ok(Rc::new(serde_json::from_str(data)?))
+    pub fn basic(name: &str, description: &str) -> Self {
+        Self {
+            spec: "chara_card_v2".to_string(),
+            spec_version: "2.0".to_string(),
+            data: CharacterData {
+                name: name.to_string(),
+                description: description.to_string(),
+                personality: String::new(),
+                scenario: String::new(),
+                first_mes: String::new(),
+                mes_example: String::new(),
+                creator_notes: String::new(),
+                system_prompt: String::new(),
+                post_history_instructions: String::new(),
+                alternate_greetings: vec![],
+                tags: vec![],
+                creator: String::new(),
+                character_version: String::new(),
+                extensions: HashMap::new(),
+                character_book: None,
+            },
+        }
     }
-}
 
-impl CharData for Card {
-    fn name(&self) -> &str {
+    pub fn load_from_json(data: &str) -> Result<Self> {
+        Ok(serde_json::from_str(data)?)
+    }
+
+    pub fn name(&self) -> &str {
         &self.data.name
     }
 
-    fn greetings(&self, partner_name: Option<&str>) -> Vec<String> {
+    pub fn greetings(&self, partner_name: Option<&str>) -> Vec<String> {
         let mut greetings = vec![self.data.first_mes.clone()];
         greetings.append(&mut self.data.alternate_greetings.clone());
         greetings
@@ -37,7 +59,7 @@ impl CharData for Card {
             .collect()
     }
 
-    fn system_prompt(&self, partner_name: Option<&str>) -> String {
+    pub fn system_prompt(&self, partner_name: Option<&str>) -> String {
         let data = self.data.clone();
         Persona::replace_names(
             &[

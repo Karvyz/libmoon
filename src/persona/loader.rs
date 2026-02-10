@@ -4,11 +4,44 @@ use log::{error, trace};
 use std::{
     fs::{self, File},
     path::PathBuf,
-    rc::Rc,
-    time::SystemTime,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
+use tokio::{
+    sync::{Mutex, mpsc},
+    time::sleep,
 };
 
-use crate::persona::{CharData, Persona, basic::Basic, card::Card};
+use crate::persona::{Persona, card::Card};
+
+pub enum LoaderUpdate {
+    Char,
+    User,
+    Done,
+}
+
+pub struct Loader {
+    chars: Arc<Mutex<Vec<Persona>>>,
+    users: Arc<Mutex<Vec<Persona>>>,
+}
+
+impl Loader {
+    pub fn new(tx: Option<mpsc::Sender<LoaderUpdate>>) -> Self {
+        let chars = Arc::new(Mutex::new(vec![]));
+        let tchars = chars.clone();
+        let users = Arc::new(Mutex::new(vec![]));
+        let tusers = users.clone();
+        tokio::spawn(async move {
+            sleep(Duration::from_millis(1000)).await;
+            tchars.lock().await.push(Persona::default_char());
+            println!("test");
+            if let Some(tx) = tx {
+                tx.send(LoaderUpdate::Char).await;
+            }
+        });
+        Self { chars, users }
+    }
+}
 
 pub fn load_chars() -> Vec<Persona> {
     let path = cache_path("chars");
@@ -111,7 +144,7 @@ fn try_load_subdir(dir: PathBuf) -> Result<Persona> {
         Ok(data) => Ok(Persona::new(
             data,
             match image {
-                Ok(image) => Some(Rc::new(image)),
+                Ok(image) => Some(image),
                 Err(_) => None,
             },
             modified_time,
@@ -121,16 +154,9 @@ fn try_load_subdir(dir: PathBuf) -> Result<Persona> {
     }
 }
 
-fn load_persona(path: PathBuf) -> Result<Rc<dyn CharData>> {
+fn load_persona(path: PathBuf) -> Result<Card> {
     let data = fs::read_to_string(&path)?;
-    if let Ok(card) = Card::load_from_json(&data) {
-        trace!("Loaded card {}", card.name());
-        return Ok(card);
-    }
-
-    let basic = Basic::load_from_json(&data)?;
-    trace!("Loaded simple {}", basic.name());
-    Ok(basic)
+    Card::load_from_json(&data)
 }
 
 fn load_image(path: PathBuf) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>> {

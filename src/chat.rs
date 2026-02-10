@@ -1,7 +1,4 @@
-use std::{
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use futures::StreamExt;
 use image::{ImageBuffer, Rgba};
@@ -87,7 +84,7 @@ impl Chat {
         self.personas[usize::from(message.owner)].name()
     }
 
-    pub fn message_image(&self, message: &Message) -> Option<Rc<ImageBuffer<Rgba<u8>, Vec<u8>>>> {
+    pub fn message_image(&self, message: &Message) -> Option<ImageBuffer<Rgba<u8>, Vec<u8>>> {
         self.personas[usize::from(message.owner)].image()
     }
 
