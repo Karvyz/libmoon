@@ -1,5 +1,6 @@
 use libmoon::{
     chat::ChatUpdate,
+    gateway::GatewayUpdate,
     moon::{Moon, MoonUpdate},
 };
 
@@ -41,9 +42,19 @@ async fn handle(moon: &mut Moon) {
             MoonUpdate::CU(u) => match u {
                 ChatUpdate::RequestSent => println!("Request Sent"),
                 ChatUpdate::RequestOk => println!("Request Ok"),
-                ChatUpdate::RequestError(e) => println!("Error: {e}"),
+                ChatUpdate::RequestError(e) => {
+                    println!("Error: {e}");
+                    return;
+                }
                 ChatUpdate::StreamUpdate => println!("StreamUpdate "),
-                ChatUpdate::StreamFinished => println!("StreamFinished"),
+                ChatUpdate::StreamFinished => {
+                    println!("StreamFinished");
+                    return;
+                }
+            },
+            MoonUpdate::GU(u) => match u {
+                GatewayUpdate::Char => println!("Char loaded"),
+                GatewayUpdate::User => println!("User loaded"),
             },
             MoonUpdate::Error(e) => println!("Error: {e}"),
         }

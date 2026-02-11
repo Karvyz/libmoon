@@ -3,10 +3,9 @@ use std::{fmt::Debug, ops::Deref, path::PathBuf, time::SystemTime};
 use image::{ImageBuffer, Rgba};
 use log::error;
 
-use crate::persona::card::Card;
+use crate::{gateway::Gateway, persona::card::Card};
 
-mod card;
-pub mod loader;
+pub mod card;
 
 #[derive(Clone)]
 pub struct Persona {
@@ -103,7 +102,7 @@ impl Persona {
 
     pub fn set_modified_time(&mut self) {
         self.modified_time = SystemTime::now();
-        if let Err(e) = loader::touch(&self.path) {
+        if let Err(e) = Gateway::touch(&self.path) {
             error!("{e}");
         }
     }
