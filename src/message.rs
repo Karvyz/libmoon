@@ -25,35 +25,38 @@ impl From<OwnerType> for usize {
 #[derive(Debug, Clone)]
 pub struct Message {
     pub owner: OwnerType,
+    pub owner_name: String,
     pub text: String,
     timestamp: SystemTime,
 }
 
 impl Message {
-    pub fn from_user(mut text: String) -> Self {
+    pub fn from_user(owner_name: String, mut text: String) -> Self {
         if !text.ends_with('\n') {
             text.push('\n');
         }
         Message {
             owner: OwnerType::User,
+            owner_name,
             text,
             timestamp: SystemTime::now(),
         }
     }
 
-    pub fn from_char(char_id: usize, mut text: String) -> Self {
+    pub fn from_char(char_id: usize, owner_name: String, mut text: String) -> Self {
         if !text.ends_with('\n') {
             text.push('\n');
         }
         Message {
             owner: OwnerType::Char(char_id),
+            owner_name,
             text,
             timestamp: SystemTime::now(),
         }
     }
 
-    pub fn empty_from_char(char_id: usize) -> Self {
-        Self::from_char(char_id, String::new())
+    pub fn empty_from_char(char_id: usize, owner_name: String) -> Self {
+        Self::from_char(char_id, owner_name, String::new())
     }
 
     pub fn to_chat_message(&self) -> ChatMessage {
@@ -66,6 +69,7 @@ impl Message {
     pub fn create_brother(&self) -> Self {
         Message {
             owner: self.owner,
+            owner_name: self.owner_name.clone(),
             text: String::new(),
             timestamp: SystemTime::now(),
         }
