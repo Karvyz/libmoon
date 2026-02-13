@@ -180,7 +180,7 @@ impl Chat {
 
     async fn send_update(tx: &Option<mpsc::Sender<ChatUpdate>>, cu: ChatUpdate) {
         if let Some(tx) = tx {
-            tx.send(cu).await.unwrap();
+            let _ = tx.send(cu).await;
         }
     }
 
