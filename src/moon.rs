@@ -40,11 +40,7 @@ impl Moon {
         Self {
             ctx,
             crx,
-            chat: Chat::with_personas(
-                Persona::default_user(),
-                Persona::default_char(),
-                settings.clone(),
-            ),
+            chat,
             settings,
             gateway,
         }
