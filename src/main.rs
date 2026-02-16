@@ -18,22 +18,19 @@ async fn main() {
     handle(&mut moon).await;
     println!("{:?}\n\n", moon.chat.get_history());
 
-    moon.chat.next(0);
-    println!("{:?}\n\n", moon.chat.get_history());
-
-    moon.chat.next(0);
+    moon.chat.next(1);
     handle(&mut moon).await;
     println!("{:?}\n\n", moon.chat.get_history());
 
-    moon.chat.previous(0);
-    moon.chat.previous(0);
-    moon.chat.previous(0);
-    moon.chat.add_edit(1, "This is an user edit.".to_string());
-    handle(&mut moon).await;
-    println!("{:?}\n\n", moon.chat.get_history());
-
-    moon.chat.add_edit(0, "This is a char edit.".to_string());
-    println!("{:?}\n\n", moon.chat.get_history());
+    // moon.chat.previous(0);
+    // moon.chat.previous(0);
+    // moon.chat.previous(0);
+    // moon.chat.add_edit(1, "This is an user edit.".to_string());
+    // handle(&mut moon).await;
+    // println!("{:?}\n\n", moon.chat.get_history());
+    //
+    // moon.chat.add_edit(0, "This is a char edit.".to_string());
+    // println!("{:?}\n\n", moon.chat.get_history());
 }
 
 async fn handle(moon: &mut Moon) {

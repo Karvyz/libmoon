@@ -27,7 +27,7 @@ impl Card {
                 description: description.to_string(),
                 personality: String::new(),
                 scenario: String::new(),
-                first_mes: String::new(),
+                first_mes: None,
                 mes_example: String::new(),
                 creator_notes: String::new(),
                 system_prompt: String::new(),
@@ -50,13 +50,20 @@ impl Card {
         &self.data.name
     }
 
-    pub fn greetings(&self, partner_name: Option<&str>) -> Vec<String> {
-        let mut greetings = vec![self.data.first_mes.clone()];
-        greetings.append(&mut self.data.alternate_greetings.clone());
-        greetings
-            .iter()
-            .map(|g| Persona::replace_names(g, &self.data.name, partner_name))
-            .collect()
+    pub fn greetings(&self, partner_name: Option<&str>) -> Option<Vec<String>> {
+        match &self.data.first_mes {
+            Some(message) => {
+                let mut greetings = vec![message.clone()];
+                greetings.append(&mut self.data.alternate_greetings.clone());
+                Some(
+                    greetings
+                        .iter()
+                        .map(|g| Persona::replace_names(g, &self.data.name, partner_name))
+                        .collect(),
+                )
+            }
+            None => None,
+        }
     }
 
     pub fn system_prompt(&self, partner_name: Option<&str>) -> String {
@@ -95,7 +102,7 @@ pub struct CharacterData {
     pub scenario: String,
 
     /// The character's first message (greeting) used at the start of a conversation.
-    pub first_mes: String,
+    pub first_mes: Option<String>,
 
     /// Example dialogues demonstrating the character's behavior.
     pub mes_example: String,

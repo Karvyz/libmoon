@@ -35,10 +35,12 @@ pub struct Chat {
 impl Chat {
     pub fn with_personas(user: Persona, char: Persona, settings: Settings) -> Self {
         let mut root = Node::new();
-        for greeting in char.greetings(Some(user.name())) {
-            root.messages
-                .push(Message::from_char(0, char.name().to_string(), greeting));
-            root.childs.push(Node::new());
+        if let Some(greetings) = char.greetings(Some(user.name())) {
+            for greeting in greetings {
+                root.messages
+                    .push(Message::from_char(0, char.name().to_string(), greeting));
+                root.childs.push(Node::new());
+            }
         }
 
         Chat {
